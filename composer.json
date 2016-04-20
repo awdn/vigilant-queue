@@ -1,7 +1,7 @@
 {
     "name": "awdn/vigilant-queue",
     "description": "React-PHP based priority queue key-value storage for expiration time based object eviction.",
-    "keywords": ["react", "priority", "queue", "key/value", "storage", "eviction", "event", ""],
+    "keywords": ["react", "priority", "queue", "key-value", "storage", "eviction", "event", "engine"],
     "license": "MIT",
     "require": {
         "php": ">=5.3.0",
