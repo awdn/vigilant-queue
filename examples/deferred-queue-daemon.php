@@ -7,7 +7,7 @@ $zmqIn = isset($opts['zmqIn']) ? (int)$opts['zmqIn'] : false;
 $debug = isset($opts['debug']) ? (boolean)$opts['debug'] : false;
 $evictionTicksPerSec = isset($opts['evictionTickrate']) ? (int)$opts['evictionTickrate'] : 1000;
 
-require_once(DIRNAME(__FILE__) . '/../../vendor/autoload.php');
+require_once(DIRNAME(__FILE__) . '/../vendor/autoload.php');
 
 if (!$zmqOut) {
     //$zmq = 'ipc://ipc-handle-deferred-queue.ipc';

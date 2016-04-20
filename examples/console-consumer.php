@@ -5,7 +5,7 @@ $opts = getopt("", array('zmq:', 'debug:'));
 $zmq = isset($opts['zmq']) ? (string)$opts['zmq'] : false;
 $debug = isset($opts['debug']) ? (boolean)$opts['debug'] : false;
 
-require_once(DIRNAME(__FILE__) . '/../../vendor/autoload.php');
+require_once(DIRNAME(__FILE__) . '/../vendor/autoload.php');
 
 
 if (!$zmq) {

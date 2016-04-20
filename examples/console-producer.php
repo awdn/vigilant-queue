@@ -26,7 +26,7 @@ $expMinMs = isset($opts['expMinMs']) ? (int)$opts['expMinMs'] : false;
 $expMaxMs = isset($opts['expMaxMs']) ? (int)$opts['expMaxMs'] : false;
 $sleepMicroSeconds = isset($opts['sleepUs']) ? (int)$opts['sleepUs'] : false;
 
-require_once(DIRNAME(__FILE__) . '/../../vendor/autoload.php');
+require_once(DIRNAME(__FILE__) . '/../vendor/autoload.php');
 
 if (!$zmq) {
     //$zmq = 'ipc://ipc-handle-deferred-queue.ipc';
