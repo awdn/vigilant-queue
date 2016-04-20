@@ -11,5 +11,8 @@
     "minimum-stability": "dev",
     "autoload": {
         "psr-4": { "Awdn\\VigilantQueue\\": "src\\" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Awdn\\Tests\\VigilantQueue\\": "tests\\" }
     }
 }
