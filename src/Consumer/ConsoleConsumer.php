@@ -2,6 +2,8 @@
 
 namespace Awdn\VigilantQueue\Consumer;
 
+use Awdn\VigilantQueue\Utility\ConsoleLog;
+
 /**
  * Class ConsoleConsumer
  * @package Awdn\VigilantQueue\Consumer
@@ -48,7 +50,7 @@ class ConsoleConsumer
         $context = new \ZMQContext();
         $rep = $context->getSocket(\ZMQ::SOCKET_PULL);
         if ($this->isDebug()) {
-            echo "Connect to zmq at '{$this->getZmq()}' (incoming evicted jobs from queue).\n";
+            ConsoleLog::log("Connect to zmq at '{$this->getZmq()}' (incoming evicted jobs from queue).");
         }
         $rep->connect($this->getZmq());
 
@@ -57,7 +59,7 @@ class ConsoleConsumer
             $i++;
             $msg = $rep->recv();
             if ($this->isDebug()) {
-                echo "Received message: " . $msg . "\n";
+                ConsoleLog::log("Received message: " . $msg);
             }
         }
     }

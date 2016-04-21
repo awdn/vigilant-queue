@@ -2,6 +2,7 @@
 
 namespace Awdn\VigilantQueue;
 
+use Awdn\VigilantQueue\Utility\ConsoleLog;
 use React;
 use Awdn\VigilantQueue\Queue\PriorityHashQueue;
 use Awdn\VigilantQueue\Queue\Message;
@@ -139,8 +140,8 @@ class DeferredQueueServer
     protected function init()
     {
         if ($this->isDebug()) {
-            echo "Running ".get_class()." on " .str_replace("\n", "", `hostname; echo ' - ';uname -a;`) . "\n";
-            echo "The eviction tick rate is set to {$this->getEvictionTicksPerSec()}/second.\n";
+            ConsoleLog::log("Running ".self::class." on " .str_replace("\n", "", `hostname; echo ' - ';uname -a;`));
+            ConsoleLog::log("The eviction tick rate is set to {$this->getEvictionTicksPerSec()}/second.");
         }
 
         // Create the event loop
@@ -154,7 +155,7 @@ class DeferredQueueServer
 
 
         if ($this->isDebug()) {
-            echo "Binding inbound ZMQ to '{$this->getZmqIn()}'.\n";
+            ConsoleLog::log("Binding inbound ZMQ to '{$this->getZmqIn()}'.");
         }
         // Receiver queue for incoming objects
         $this->zmqInboundQueue = $this->zmqContext->getSocket(\ZMQ::SOCKET_SUB);
@@ -163,7 +164,7 @@ class DeferredQueueServer
 
 
         if ($this->isDebug()) {
-            echo "Binding outbound ZMQ to '{$this->getZmqOut()}'.\n";
+            ConsoleLog::log("Binding outbound ZMQ to '{$this->getZmqOut()}'.");
         }
         // Outgoing queue for evicted objects
         $this->zmqOutboundQueue = $this->zmqContext->getSocket(\ZMQ::SOCKET_PUSH);
@@ -190,11 +191,11 @@ class DeferredQueueServer
                 $this->getQueue()->push($message['key'], $message['data'], round(microtime(true) * 1000000) + $message['timeout']);
 
                 if ($this->isDebug()) {
-                    echo "[OnMessage] Data for key '{$message['key']}' [type '{$message['type']}', exp {$message['timeout']} ms]: ".str_replace("\n", "", var_export($message['data'], true))."\n";
+                    ConsoleLog::log("[OnMessage] Data for key '{$message['key']}' [type '{$message['type']}', exp {$message['timeout']} ms]: ".str_replace("\n", "", var_export($message['data'], true)));
                 }
             } catch (\Exception $e) {
                 if ($this->isDebug()) {
-                    echo "[WARN] " . $e->getMessage() . "\n";
+                    ConsoleLog::log("[WARN] " . $e->getMessage());
                 }
             }
         });
@@ -207,7 +208,7 @@ class DeferredQueueServer
         $this->reactLoop->addPeriodicTimer(1 / $this->getEvictionTicksPerSec() , function () {
             if (($item = $this->getQueue()->evict(round(microtime(true) * 1000000))) !== null) {
                 if ($this->isDebug()) {
-                    echo "[Eviction] Timeout detected for '{$item['key']}' at " . round($item['priority'] / 1000000, 3). "\n";
+                    ConsoleLog::log("[Eviction] Timeout detected for '{$item['key']}' at " . round($item['priority'] / 1000000, 3));
                 }
 
                 $this->getZmqOutboundQueue()->send((string)$item['data']);
@@ -222,18 +223,18 @@ class DeferredQueueServer
     private function registerTimedEvents()
     {
         $this->reactLoop->addPeriodicTimer(self::STATUS_LOOP_INTERVAL, function () {
-            $d = date("Y-m-d H:i:s");
+
             if (memory_get_usage(true) / 1024 / 1024 > self::MEMORY_WARN_LIMIT_MB) {
-                echo $d . " - [WARN] MemoryUsage:    " . (memory_get_usage(true) / 1024 / 1024) . " MB.\n";
+                ConsoleLog::log("[WARN] MemoryUsage:    " . (memory_get_usage(true) / 1024 / 1024) . " MB.");
             }
             if (memory_get_peak_usage(true) / 1024 / 1024 > self::MEMORY_PEAK_WARN_LIMIT_MB) {
-                echo $d . " - [WARN] MemoryPeakUsage " . (memory_get_peak_usage(true) / 1024 / 1024) . " MB.\n";
+                ConsoleLog::log("[WARN] MemoryPeakUsage " . (memory_get_peak_usage(true) / 1024 / 1024) . " MB.");
             }
 
             $rateObjects = ($this->getAddedObjectCount() - $this->getLastObjectCount()) / self::STATUS_LOOP_INTERVAL;
             $rateEvictions = ($this->getEvictedObjectCount() - $this->getLastEvictionCount()) / self::STATUS_LOOP_INTERVAL;
 
-            echo $d . " - [STATS] Added objects: {$this->getAddedObjectCount()}, evictions: {$this->getEvictedObjectCount()} ({$rateObjects} Obj/Sec, {$rateEvictions} Evi/Sec).\n";
+            ConsoleLog::log("[STATS] Added objects: {$this->getAddedObjectCount()}, evictions: {$this->getEvictedObjectCount()} ({$rateObjects} Obj/Sec, {$rateEvictions} Evi/Sec).");
 
             $this->setLastEvictionCount($this->getEvictedObjectCount());
             $this->setLastObjectCount($this->getAddedObjectCount());
