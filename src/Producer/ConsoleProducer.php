@@ -2,9 +2,12 @@
 
 namespace Awdn\VigilantQueue\Producer;
 
-
 use Awdn\VigilantQueue\Queue\Message;
 
+/**
+ * Class ConsoleProducer
+ * @package Awdn\VigilantQueue\Producer
+ */
 class ConsoleProducer
 {
     /**
@@ -45,8 +48,7 @@ class ConsoleProducer
     }
 
     /**
-     * Receives objects to push through a given zmq channel.
-     *
+     * Produces
      */
     public function produce() {
         if ($this->isDebug()) echo __CLASS__ . ":: Starting console producer.\n";
@@ -89,13 +91,17 @@ class ConsoleProducer
 
     }
 
+    /**
+     * Simulates messages on the producer side.
+     *
+     * @param string $keyPrefix Prefix for key generation.
+     * @param int $keyDistribution Number of different keys to generate.
+     * @param int $numMessages Number of messages to send
+     * @param int $expMinMs Start value for random expiration in microseconds.
+     * @param int $expMaxMs End value for random expiration in microseconds.
+     * @param int $sleepMicroSeconds Sleep duration between each send call in microseconds.
+     */
     public function simulate($keyPrefix, $keyDistribution, $numMessages, $expMinMs, $expMaxMs, $sleepMicroSeconds) {
-        if ($this->isDebug()) {
-            echo __CLASS__ . ":: Starting console producer simulation with the following parameters:\n";
-            $args = func_get_args();
-            var_dump($args);
-        }
-
 
         $context = new \ZMQContext(1);
         $pub = new \ZMQSocket($context, \ZMQ::SOCKET_PUB);
@@ -106,6 +112,7 @@ class ConsoleProducer
         $pub->bind($this->getZmqOut());
 
         // Sleep until socket is ready
+        // @todo Figure out a better way to check if the socket is ready.
         usleep(1000000);
 
         if ($this->isDebug()) echo __CLASS__ . ":: Generating packets...\n";

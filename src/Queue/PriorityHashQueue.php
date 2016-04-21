@@ -2,8 +2,13 @@
 namespace Awdn\VigilantQueue\Queue;
 
 use Awdn\VigilantQueue\Queue\MinPriorityQueue;
+use Traversable;
 
-class PriorityHashQueue implements \Iterator, \ArrayAccess, \Countable
+/**
+ * Class PriorityHashQueue
+ * @package Awdn\VigilantQueue\Queue
+ */
+class PriorityHashQueue implements \IteratorAggregate, \ArrayAccess, \Countable
 {
     /**
      * @var MinPriorityQueue
@@ -25,6 +30,13 @@ class PriorityHashQueue implements \Iterator, \ArrayAccess, \Countable
      */
     private $defaultPriority = 1;
 
+    private $extractPolicy = self::EXTRACT_ALL;
+
+    const EXTRACT_ALL = 1;
+    const EXTRACT_KEY = 2;
+    const EXTRACT_PRIORITY = 3;
+    const EXTRACT_DATA = 4;
+
     /**
      * PriorityHashQueue constructor.
      */
@@ -34,31 +46,6 @@ class PriorityHashQueue implements \Iterator, \ArrayAccess, \Countable
         $this->queue->setExtractFlags(MinPriorityQueue::EXTR_BOTH);
         $this->data = new \ArrayObject();
         $this->priority = new \ArrayObject();
-    }
-
-    /**
-     * @param int $threshold
-     * @return mixed|null
-     */
-    public function evict($threshold)
-    {
-        if ($this->queue->valid()) {
-            $item = (object)$this->queue->top();
-            if ($item->priority <= $threshold) {
-                $this->queue->next();
-                if ($this->priority->offsetExists($item->data)
-                    && $this->priority->offsetGet($item->data) == $item->priority)
-                {
-                    $data = $this->data->offsetGet($item->data);
-                    $this->data->offsetUnset($item->data);
-                    $this->priority->offsetUnset($item->data);
-                    //return $data;
-                    return ['data' => $data, 'key' => $item->data, 'priority' => $item->priority];
-                }
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -73,62 +60,48 @@ class PriorityHashQueue implements \Iterator, \ArrayAccess, \Countable
         $this->queue->insert($key, $priority);
     }
 
-
     /**
-     * Return the current element
-     * @link http://php.net/manual/en/iterator.current.php
-     * @return mixed Can return any type.
-     * @since 5.0.0
+     * @param int $threshold
+     * @return mixed|null
      */
-    public function current()
+    public function evict($threshold)
     {
-        return $this->queue->current();
+        if ($this->queue->valid()) {
+            $item = $this->queue->top();
+            if ($item['priority'] <= $threshold) {
+                $this->queue->next();
+                $key = $item['data'];
+
+                // Return only the most recent items which have not been evicted so far.
+                if ($this->priority->offsetExists($key)
+                    && $this->priority->offsetGet($key) == $item['priority']
+                ) {
+                    $data = $this->data->offsetGet($key);
+                    $this->data->offsetUnset($key);
+                    $this->priority->offsetUnset($key);
+
+                    switch ($this->getExtractPolicy()) {
+                        case self::EXTRACT_DATA:
+                            return $data;
+                        case self::EXTRACT_KEY:
+                            return $key;
+                        case self::EXTRACT_PRIORITY:
+                            return $item['priority'];
+                        case self::EXTRACT_ALL:
+                        default:
+                            return [
+                                'data' => $data,
+                                'key' => $key,
+                                'priority' => $item['priority']
+                            ];
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
-    /**
-     * Move forward to next element
-     * @link http://php.net/manual/en/iterator.next.php
-     * @return void Any returned value is ignored.
-     * @since 5.0.0
-     */
-    public function next()
-    {
-        $this->queue->next();
-    }
-
-    /**
-     * Return the key of the current element
-     * @link http://php.net/manual/en/iterator.key.php
-     * @return mixed scalar on success, or null on failure.
-     * @since 5.0.0
-     */
-    public function key()
-    {
-        return $this->queue->key();
-    }
-
-    /**
-     * Checks if current position is valid
-     * @link http://php.net/manual/en/iterator.valid.php
-     * @return boolean The return value will be casted to boolean and then evaluated.
-     * Returns true on success or false on failure.
-     * @since 5.0.0
-     */
-    public function valid()
-    {
-        return $this->queue->valid();
-    }
-
-    /**
-     * Rewind the Iterator to the first element
-     * @link http://php.net/manual/en/iterator.rewind.php
-     * @return void Any returned value is ignored.
-     * @since 5.0.0
-     */
-    public function rewind()
-    {
-        $this->queue->rewind();
-    }
 
     /**
      * Whether a offset exists
@@ -223,7 +196,7 @@ class PriorityHashQueue implements \Iterator, \ArrayAccess, \Countable
      */
     public function count()
     {
-       return $this->data->count();
+        return $this->data->count();
     }
 
     /**
@@ -242,5 +215,46 @@ class PriorityHashQueue implements \Iterator, \ArrayAccess, \Countable
         $this->defaultPriority = $defaultPriority;
     }
 
+    /**
+     * @return int
+     */
+    public function getExtractPolicy()
+    {
+        return $this->extractPolicy;
+    }
 
+    /**
+     * @param int $extractPolicy
+     */
+    public function setExtractPolicy($extractPolicy)
+    {
+        $this->extractPolicy = $extractPolicy;
+    }
+
+
+    /**
+     * Retrieve an external iterator
+     * @link http://php.net/manual/en/iteratoraggregate.getiterator.php
+     * @return Traversable An instance of an object implementing <b>Iterator</b> or
+     * <b>Traversable</b>
+     * @since 5.0.0
+     */
+    public function getIterator()
+    {
+        return $this->data->getIterator();
+    }
+
+    /**
+     * @param string $className
+     */
+    public function setIteratorClass($className) {
+        $this->data->setIteratorClass($className);
+    }
+
+    /**
+     * @return string
+     */
+    public function getIteratorClass() {
+        return $this->data->getIteratorClass();
+    }
 }

@@ -2,7 +2,10 @@
 
 namespace Awdn\VigilantQueue\Consumer;
 
-
+/**
+ * Class ConsoleConsumer
+ * @package Awdn\VigilantQueue\Consumer
+ */
 class ConsoleConsumer
 {
 
@@ -16,6 +19,10 @@ class ConsoleConsumer
      */
     private $zmq;
 
+    /**
+     * ConsoleConsumer constructor.
+     * @param $zmq
+     */
     private function __construct($zmq)
     {
         $this->setZmq($zmq);
@@ -33,6 +40,9 @@ class ConsoleConsumer
         return $consumer;
     }
 
+    /**
+     * Consumes evicted objects from the outbound queue.
+     */
     public function consume()
     {
         $context = new \ZMQContext();

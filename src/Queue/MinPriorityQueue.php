@@ -2,7 +2,10 @@
 
 namespace Awdn\VigilantQueue\Queue;
 
-
+/**
+ * Class MinPriorityQueue
+ * @package Awdn\VigilantQueue\Queue
+ */
 class MinPriorityQueue extends \SplPriorityQueue
 {
 

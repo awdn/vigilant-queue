@@ -2,6 +2,10 @@
 
 namespace Awdn\VigilantQueue\Queue;
 
+/**
+ * Class Message
+ * @package Awdn\VigilantQueue\Queue
+ */
 class Message
 {
     /**
@@ -132,7 +136,7 @@ class Message
     }
 
     /**
-     * @param mixed $data
+     * @param string $data
      */
     public function setData($data)
     {
