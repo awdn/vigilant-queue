@@ -3,6 +3,7 @@
 namespace Awdn\VigilantQueue\Producer;
 
 use Awdn\VigilantQueue\Queue\Message;
+use Awdn\VigilantQueue\Utility\ConsoleLog;
 
 /**
  * Class ConsoleProducer
@@ -51,14 +52,14 @@ class ConsoleProducer
      * Produces
      */
     public function produce() {
-        if ($this->isDebug()) echo __CLASS__ . ":: Starting console producer.\n";
+        if ($this->isDebug()) ConsoleLog::log("Starting console producer.");
 
         $context = new \ZMQContext(1);
         $pub = new \ZMQSocket($context, \ZMQ::SOCKET_PUB);
         //$pub->bind('tcp://127.0.0.1:6444');
         //$ipcPath = 'ipc://'.$this->getZmqOut();
         if ($this->isDebug()) {
-            echo __CLASS__ . " Using {$this->getZmqOut()} for inter process communication.\n";
+            ConsoleLog::log("Using {$this->getZmqOut()} for inter process communication.");
         }
         $pub->bind($this->getZmqOut());
 
@@ -66,11 +67,11 @@ class ConsoleProducer
         if ($this->isStdIn()) {
             $fp = fopen('php://stdin', 'r');
             if (!is_resource($fp)) {
-                echo "Can not read from stdin.\n";
+                ConsoleLog::log("Can not read from stdin.");
                 exit(1);
             }
         }
-        if ($this->isDebug()) echo __CLASS__ . ":: Waiting for packets...\n";
+        if ($this->isDebug()) ConsoleLog::log("Waiting for packets...");
         $packet = $prevPacket = false;
         do {
             if ($this->isStdIn()) {
@@ -80,7 +81,7 @@ class ConsoleProducer
                 $packet = readline();
             }
 
-            if ($this->isDebug()) echo __CLASS__ . ":: Received packet: {$packet}\n";
+            if ($this->isDebug()) ConsoleLog::log("Received packet: {$packet}");
             // writeLog($logFile, "Packet Received: {$packet}", LOG_INFO);
             $pub->send('obj ' . $packet, \ZMQ::MODE_DONTWAIT);
             if ($this->isDebug()) {
@@ -107,7 +108,7 @@ class ConsoleProducer
         $pub = new \ZMQSocket($context, \ZMQ::SOCKET_PUB);
 
         if ($this->isDebug()) {
-            echo __CLASS__ . " Using {$this->getZmqOut()} for inter process communication.\n";
+            ConsoleLog::log("Using {$this->getZmqOut()} for inter process communication.");
         }
         $pub->bind($this->getZmqOut());
 
@@ -115,7 +116,7 @@ class ConsoleProducer
         // @todo Figure out a better way to check if the socket is ready.
         usleep(1000000);
 
-        if ($this->isDebug()) echo __CLASS__ . ":: Generating packets...\n";
+        if ($this->isDebug()) ConsoleLog::log("Generating packets...");
 
 
         for ($i = 0; $i < $numMessages; $i++) {
@@ -125,7 +126,7 @@ class ConsoleProducer
             $message = new Message($key, sha1($key . $expire . microtime(true)), $expire);
 
             if ($this->isDebug()) {
-                echo __CLASS__ . ":: Sending {$message}\n";
+                ConsoleLog::log((string)$message);
             }
 
             $pub->send('obj ' . trim((string)$message));
