@@ -7,6 +7,10 @@ use Awdn\VigilantQueue\Queue\PriorityHashQueue;
 use Awdn\VigilantQueue\Queue\Message;
 use Awdn\VigilantQueue\Queue\MessageArrayAggregator;
 
+/**
+ * Class DeferredQueueServer
+ * @package Awdn\VigilantQueue
+ */
 class DeferredQueueServer
 {
 
@@ -123,6 +127,9 @@ class DeferredQueueServer
         $this->setDebug(false);
     }
 
+    /**
+     * Executes the event loop.
+     */
     public function run()
     {
         $this->reactLoop->run();
@@ -169,7 +176,7 @@ class DeferredQueueServer
     }
 
     /**
-     *
+     * Registers inbound data events.
      */
     private function registerInboundEvents()
     {
@@ -194,7 +201,7 @@ class DeferredQueueServer
     }
 
     /**
-     *
+     * Registers the eviction of items from the queue.
      */
     private function registerEvictionEvents() {
         $this->reactLoop->addPeriodicTimer(1 / $this->getEvictionTicksPerSec() , function () {
@@ -210,7 +217,7 @@ class DeferredQueueServer
     }
 
     /**
-     *
+     * Registers a periodically triggered status event.
      */
     private function registerTimedEvents()
     {
@@ -237,7 +244,7 @@ class DeferredQueueServer
     /**
      * @return PriorityHashQueue
      */
-    public function getQueue()
+    private function getQueue()
     {
         return $this->queue;
     }
@@ -245,7 +252,7 @@ class DeferredQueueServer
     /**
      * @return \ZMQSocket
      */
-    public function getZmqOutboundQueue()
+    private function getZmqOutboundQueue()
     {
         return $this->zmqOutboundQueue;
     }
@@ -253,7 +260,7 @@ class DeferredQueueServer
     /**
      * @return \ZMQSocket
      */
-    public function getZmqInboundQueue()
+    private function getZmqInboundQueue()
     {
         return $this->zmqInboundQueue;
     }
@@ -261,7 +268,7 @@ class DeferredQueueServer
     /**
      * @return int
      */
-    public function getEvictedObjectCount()
+    private function getEvictedObjectCount()
     {
         return $this->evictedObjectCount;
     }
@@ -269,7 +276,7 @@ class DeferredQueueServer
     /**
      * @param int $evictedObjectCount Optional. Default 1.
      */
-    public function incrementEvictedObjectCount($evictedObjectCount = 1)
+    private function incrementEvictedObjectCount($evictedObjectCount = 1)
     {
         $this->evictedObjectCount += $evictedObjectCount;
     }
@@ -277,7 +284,7 @@ class DeferredQueueServer
     /**
      * @return int
      */
-    public function getAddedObjectCount()
+    private function getAddedObjectCount()
     {
         return $this->addedObjectCount;
     }
@@ -285,7 +292,7 @@ class DeferredQueueServer
     /**
      * @param int $addedObjectCount
      */
-    public function incrementAddedObjectCount($addedObjectCount = 1)
+    private function incrementAddedObjectCount($addedObjectCount = 1)
     {
         $this->addedObjectCount += $addedObjectCount;
     }
@@ -293,7 +300,7 @@ class DeferredQueueServer
     /**
      * @return boolean
      */
-    public function isDebug()
+    private function isDebug()
     {
         return $this->debug;
     }
@@ -301,7 +308,7 @@ class DeferredQueueServer
     /**
      * @param boolean $debug
      */
-    public function setDebug($debug)
+    private function setDebug($debug)
     {
         $this->debug = $debug;
     }
@@ -309,7 +316,7 @@ class DeferredQueueServer
     /**
      * @return int
      */
-    public function getZmqIn()
+    private function getZmqIn()
     {
         return $this->zmqIn;
     }
@@ -317,7 +324,7 @@ class DeferredQueueServer
     /**
      * @param int $zmqIn
      */
-    public function setZmqIn($zmqIn)
+    private function setZmqIn($zmqIn)
     {
         $this->zmqIn = $zmqIn;
     }
@@ -325,7 +332,7 @@ class DeferredQueueServer
     /**
      * @return string
      */
-    public function getZmqOut()
+    private function getZmqOut()
     {
         return $this->zmqOut;
     }
@@ -333,7 +340,7 @@ class DeferredQueueServer
     /**
      * @param string $zmqOut
      */
-    public function setZmqOut($zmqOut)
+    private function setZmqOut($zmqOut)
     {
         $this->zmqOut = $zmqOut;
     }
@@ -341,7 +348,7 @@ class DeferredQueueServer
     /**
      * @return int
      */
-    public function getEvictionTicksPerSec()
+    private function getEvictionTicksPerSec()
     {
         return $this->evictionTicksPerSec;
     }
@@ -349,7 +356,7 @@ class DeferredQueueServer
     /**
      * @param int $evictionTicksPerSec
      */
-    public function setEvictionTicksPerSec($evictionTicksPerSec)
+    private function setEvictionTicksPerSec($evictionTicksPerSec)
     {
         $this->evictionTicksPerSec = $evictionTicksPerSec;
     }
@@ -357,7 +364,7 @@ class DeferredQueueServer
     /**
      * @return int
      */
-    public function getLastObjectCount()
+    private function getLastObjectCount()
     {
         return $this->lastObjectCount;
     }
@@ -365,7 +372,7 @@ class DeferredQueueServer
     /**
      * @param int $lastObjectCount
      */
-    public function setLastObjectCount($lastObjectCount)
+    private function setLastObjectCount($lastObjectCount)
     {
         $this->lastObjectCount = $lastObjectCount;
     }
@@ -373,7 +380,7 @@ class DeferredQueueServer
     /**
      * @return int
      */
-    public function getLastEvictionCount()
+    private function getLastEvictionCount()
     {
         return $this->lastEvictionCount;
     }
@@ -381,7 +388,7 @@ class DeferredQueueServer
     /**
      * @param int $lastEvictionCount
      */
-    public function setLastEvictionCount($lastEvictionCount)
+    private function setLastEvictionCount($lastEvictionCount)
     {
         $this->lastEvictionCount = $lastEvictionCount;
     }
