@@ -2,7 +2,7 @@
 
 namespace Awdn\VigilantQueue\Producer;
 
-use Awdn\VigilantQueue\Queue\Message;
+
 use Awdn\VigilantQueue\Utility\ConsoleLog;
 
 /**
@@ -54,15 +54,8 @@ class ConsoleProducer
     public function produce() {
         if ($this->isDebug()) ConsoleLog::log("Starting console producer.");
 
-        $context = new \ZMQContext(1);
-        $pub = new \ZMQSocket($context, \ZMQ::SOCKET_PUB);
-        //$pub->bind('tcp://127.0.0.1:6444');
-        //$ipcPath = 'ipc://'.$this->getZmqOut();
-        if ($this->isDebug()) {
-            ConsoleLog::log("Using {$this->getZmqOut()} for inter process communication.");
-        }
-        $pub->bind($this->getZmqOut());
-
+        $client = new Client($this->getZmqOut());
+        $client->connect();
         $fp = false;
         if ($this->isStdIn()) {
             $fp = fopen('php://stdin', 'r');
@@ -83,7 +76,7 @@ class ConsoleProducer
 
             if ($this->isDebug()) ConsoleLog::log("Received packet: {$packet}");
             // writeLog($logFile, "Packet Received: {$packet}", LOG_INFO);
-            $pub->send('obj ' . $packet, \ZMQ::MODE_DONTWAIT);
+            $client->send($packet);
             if ($this->isDebug()) {
                 //echo __CLASS__ . ":: Sending to zmq with result: " . "\n";
             }
@@ -104,14 +97,8 @@ class ConsoleProducer
      */
     public function simulate($keyPrefix, $keyDistribution, $numMessages, $expMinMs, $expMaxMs, $sleepMicroSeconds) {
 
-        $context = new \ZMQContext(1);
-        $pub = new \ZMQSocket($context, \ZMQ::SOCKET_PUB);
-
-        if ($this->isDebug()) {
-            ConsoleLog::log("Using {$this->getZmqOut()} for inter process communication.");
-        }
-        $pub->bind($this->getZmqOut());
-
+        $client = new Client($this->getZmqOut());
+        $client->connect();
         // Sleep until socket is ready
         // @todo Figure out a better way to check if the socket is ready.
         usleep(1000000);
@@ -122,14 +109,14 @@ class ConsoleProducer
         for ($i = 0; $i < $numMessages; $i++) {
             $key = $keyPrefix . '_' . mt_rand(1, $keyDistribution);
             $expire = mt_rand($expMinMs, $expMaxMs);
-
-            $message = new Message($key, sha1($key . $expire . microtime(true)), $expire);
+            $data = serialize(['a' => mt_rand(10,10), 'b' => mt_rand(10,10)]);
+            $message = new RequestMessage($key, $data, $expire, 'aggregate');
 
             if ($this->isDebug()) {
                 ConsoleLog::log((string)$message);
             }
 
-            $pub->send('obj ' . trim((string)$message));
+            $client->send((string)$message);
 
             if ($sleepMicroSeconds) {
                 usleep($sleepMicroSeconds);

@@ -1,12 +1,12 @@
 <?php
 
-namespace Awdn\VigilantQueue\Queue;
+namespace Awdn\VigilantQueue\Producer;
 
 /**
- * Class Message
- * @package Awdn\VigilantQueue\Queue
+ * Class RequestMessage
+ * @package Awdn\VigilantQueue\Producer
  */
-class Message
+class RequestMessage implements RequestMessageInterface
 {
     /**
      * @var string
@@ -49,18 +49,12 @@ class Message
 
     public function __toString()
     {
-        $s = "{$this->getKey()}:{$this->getTimeoutMicroSeconds()}:{$this->getType()}|";
-        if (!is_string($this->data)) {
-            $s .= serialize($this->data);
-        } else {
-            $s .= $this->data;
-        }
-        return $s;
+        return "{$this->getKey()}:{$this->getTimeoutMicroSeconds()}:{$this->getType()}|{$this->getData()}";
     }
 
     /**
      * @param string $msg
-     * @return Message
+     * @return RequestMessage
      * @throws \Exception
      */
     public static function fromString($msg)
@@ -82,7 +76,8 @@ class Message
      * @return array
      * @throws \Exception
      */
-    public static function fromStringToArray($msg) {
+    public static function fromStringToArray($msg)
+    {
         $posDataDelimiter = strpos($msg, '|');
 
         if ($posDataDelimiter === false) {

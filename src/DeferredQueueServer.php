@@ -2,11 +2,16 @@
 
 namespace Awdn\VigilantQueue;
 
-use Awdn\VigilantQueue\Utility\ConsoleLog;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Formatter\LineFormatter;
+use Psr\Log\LoggerInterface;
 use React;
+use Awdn\VigilantQueue\Consumer\ResponseMessage;
+use Awdn\VigilantQueue\Utility\ConsoleLog;
 use Awdn\VigilantQueue\Queue\PriorityHashQueue;
-use Awdn\VigilantQueue\Queue\Message;
-use Awdn\VigilantQueue\Queue\MessageArrayAggregator;
+use Awdn\VigilantQueue\Producer\RequestMessage;
+
 
 /**
  * Class DeferredQueueServer
@@ -69,8 +74,9 @@ class DeferredQueueServer
      */
     const EVICTION_LOOP_INTERVAL = 0.00001;
     const STATUS_LOOP_INTERVAL = 1.0;
-    const MEMORY_WARN_LIMIT_MB = 0.5;
-    const MEMORY_PEAK_WARN_LIMIT_MB = 30;
+    const MEMORY_INFO_LIMIT_MB = 0.5;
+    const MEMORY_WARN_LIMIT_MB = 10;
+    const MEMORY_PEAK_WARN_LIMIT_MB = 50;
 
 
     /**
@@ -98,6 +104,11 @@ class DeferredQueueServer
      * @var bool
      */
     private $debug;
+
+    /**
+     * @var LoggerInterface
+     */
+    private $log;
 
     /**
      * @param string $zmqIn
@@ -139,33 +150,34 @@ class DeferredQueueServer
 
     protected function init()
     {
-        if ($this->isDebug()) {
-            ConsoleLog::log("Running ".self::class." on " .str_replace("\n", "", `hostname; echo ' - ';uname -a;`));
-            ConsoleLog::log("The eviction tick rate is set to {$this->getEvictionTicksPerSec()}/second.");
+
+        if (!$this->log) {
+            $this->prepareLogger();
         }
+
+        $this->log->info("Running ".self::class." on " .str_replace("\n", "", `hostname; echo ' - ';uname -a;`));
+        $this->log->info("The eviction tick rate is set to {$this->getEvictionTicksPerSec()}/second.");
 
         // Create the event loop
         $this->reactLoop = React\EventLoop\Factory::create();
 
         // Object pool
         $this->queue = new PriorityHashQueue();
+        // In default mode the latest data will be replaced for a given key. In DATA_MODE_APPEND the data will be appended
+        // internally and available within the consumer as array (for instance for reducing purposes)
+        //$this->queue->setDataMode(PriorityHashQueue::DATA_MODE_APPEND);
 
         // Setup ZMQ to send evicted objects.
         $this->zmqContext = new React\ZMQ\Context($this->reactLoop);
 
+        $this->log->info("Binding inbound ZMQ to '{$this->getZmqIn()}'.");
 
-        if ($this->isDebug()) {
-            ConsoleLog::log("Binding inbound ZMQ to '{$this->getZmqIn()}'.");
-        }
         // Receiver queue for incoming objects
-        $this->zmqInboundQueue = $this->zmqContext->getSocket(\ZMQ::SOCKET_SUB);
-        $this->zmqInboundQueue->connect($this->getZmqIn());
-        $this->zmqInboundQueue->subscribe('obj');
+        $this->zmqInboundQueue = $this->zmqContext->getSocket(\ZMQ::SOCKET_PULL);
+        $this->zmqInboundQueue->bind($this->getZmqIn());
 
+        $this->log->info("Binding outbound ZMQ to '{$this->getZmqOut()}'.");
 
-        if ($this->isDebug()) {
-            ConsoleLog::log("Binding outbound ZMQ to '{$this->getZmqOut()}'.");
-        }
         // Outgoing queue for evicted objects
         $this->zmqOutboundQueue = $this->zmqContext->getSocket(\ZMQ::SOCKET_PUSH);
         $this->zmqOutboundQueue->bind($this->getZmqOut());
@@ -184,18 +196,18 @@ class DeferredQueueServer
         // Handle requests from queue via SUBSCRIBER
         $this->zmqInboundQueue->on('message', function ($msg) {
             $this->incrementAddedObjectCount();
-            $msg = substr($msg, 4); // remove 'obj ' prefix
+            //$msg = substr($msg, 4); // remove 'obj ' prefix
 
             try {
-                $message = Message::fromStringToArray($msg);
-                $this->getQueue()->push($message['key'], $message['data'], round(microtime(true) * 1000000) + $message['timeout']);
+                $message = RequestMessage::fromStringToArray($msg);
+                $this->getQueue()->push($message['key'], $message['data'], round(microtime(true) * 1000000) + $message['timeout'], $message['type']);
 
                 if ($this->isDebug()) {
-                    ConsoleLog::log("[OnMessage] Data for key '{$message['key']}' [type '{$message['type']}', exp {$message['timeout']} ms]: ".str_replace("\n", "", var_export($message['data'], true)));
+                    $this->log->debug("[OnMessage] Data for key '{$message['key']}' [type '{$message['type']}', exp {$message['timeout']} ms]: ".str_replace("\n", "", var_export($message['data'], true)));
                 }
             } catch (\Exception $e) {
                 if ($this->isDebug()) {
-                    ConsoleLog::log("[WARN] " . $e->getMessage());
+                    $this->log->warning("[WARN] " . $e->getMessage());
                 }
             }
         });
@@ -208,10 +220,10 @@ class DeferredQueueServer
         $this->reactLoop->addPeriodicTimer(1 / $this->getEvictionTicksPerSec() , function () {
             if (($item = $this->getQueue()->evict(round(microtime(true) * 1000000))) !== null) {
                 if ($this->isDebug()) {
-                    ConsoleLog::log("[Eviction] Timeout detected for '{$item['key']}' at " . round($item['priority'] / 1000000, 3));
+                    $this->log->debug("[Eviction] Timeout detected for '{$item->getKey()}' at " . round($item->getPriority() / 1000000, 3));
                 }
 
-                $this->getZmqOutboundQueue()->send((string)$item['data']);
+                $this->getZmqOutboundQueue()->send(ResponseMessage::fromQueueItemToString($item));
                 $this->incrementEvictedObjectCount();
             }
         });
@@ -224,23 +236,39 @@ class DeferredQueueServer
     {
         $this->reactLoop->addPeriodicTimer(self::STATUS_LOOP_INTERVAL, function () {
 
-            if (memory_get_usage(true) / 1024 / 1024 > self::MEMORY_WARN_LIMIT_MB) {
-                ConsoleLog::log("[WARN] MemoryUsage:    " . (memory_get_usage(true) / 1024 / 1024) . " MB.");
+            $memoryUsageMb = memory_get_usage(true) / 1024 / 1024;
+            if ($memoryUsageMb > self::MEMORY_WARN_LIMIT_MB) {
+                $this->log->warning("MemoryUsage:   {$memoryUsageMb} MB.");
+            } else if ($memoryUsageMb > self::MEMORY_INFO_LIMIT_MB) {
+                $this->log->info("MemoryUsage:   {$memoryUsageMb} MB.");
             }
+
             if (memory_get_peak_usage(true) / 1024 / 1024 > self::MEMORY_PEAK_WARN_LIMIT_MB) {
-                ConsoleLog::log("[WARN] MemoryPeakUsage " . (memory_get_peak_usage(true) / 1024 / 1024) . " MB.");
+                $this->log->warning("MemoryPeakUsage " . (memory_get_peak_usage(true) / 1024 / 1024) . " MB.");
             }
 
             $rateObjects = ($this->getAddedObjectCount() - $this->getLastObjectCount()) / self::STATUS_LOOP_INTERVAL;
             $rateEvictions = ($this->getEvictedObjectCount() - $this->getLastEvictionCount()) / self::STATUS_LOOP_INTERVAL;
 
-            ConsoleLog::log("[STATS] Added objects: {$this->getAddedObjectCount()}, evictions: {$this->getEvictedObjectCount()} ({$rateObjects} Obj/Sec, {$rateEvictions} Evi/Sec).");
+            $this->log->info("Added objects: {$this->getAddedObjectCount()}, evictions: {$this->getEvictedObjectCount()} ({$rateObjects} Obj/Sec, {$rateEvictions} Evi/Sec).");
 
             $this->setLastEvictionCount($this->getEvictedObjectCount());
             $this->setLastObjectCount($this->getAddedObjectCount());
         });
     }
 
+    /**
+     * This allows to set a given dataMode for a request message type. Data mode can be one of
+     * PriorityHashQueue::DATA_MODE_REPLACE or PriorityHashQueue::DATA_MODE_APPEND.
+     *
+     * Later this should become configurable via API.
+     *
+     * @param string $type
+     * @param string $dataMode
+     */
+    public function setDataModeByType($type, $dataMode) {
+        $this->queue->setDataModeByType($type, $dataMode);
+    }
 
     /**
      * @return PriorityHashQueue
@@ -394,5 +422,14 @@ class DeferredQueueServer
         $this->lastEvictionCount = $lastEvictionCount;
     }
 
+    private function prepareLogger() {
+        $output = "[%datetime%] %channel%.%level_name%: %message%\n";
+        $formatter = new LineFormatter($output);
 
+        $streamHandler = new StreamHandler('php://stdout', $this->isDebug() ? Logger::DEBUG : Logger::INFO);
+        $streamHandler->setFormatter($formatter);
+
+        $this->log = new Logger('DeferredQueueServer');
+        $this->log->pushHandler($streamHandler);
+    }
 }
