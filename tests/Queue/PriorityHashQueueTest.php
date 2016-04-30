@@ -1,13 +1,6 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: aw
- * Date: 20.04.16
- * Time: 18:31
- */
 
 namespace Awdn\Tests\VigilantQueue\Queue;
-
 
 use Awdn\VigilantQueue\Queue\PriorityHashQueue;
 
@@ -28,7 +21,7 @@ class PriorityHashQueueTest extends \PHPUnit_Framework_TestCase
         $count = 0;
         while (($item = $q->evict(10)) !== null) {
             $count++;
-            $this->assertEquals("d-".$count, $item['data']);
+            $this->assertEquals(strlen("d-".$count).":d-".$count, $item->getData());
         }
 
         $this->assertEquals($count, 10);
@@ -36,7 +29,7 @@ class PriorityHashQueueTest extends \PHPUnit_Framework_TestCase
         // Replacing one existing entry in the data array. The old item will still be in the queue, but it won't be valid.
         $q->push('k-11', 'd-11-new', 11);
         $item = $q->evict(12);
-        $this->assertEquals('d-11-new', $item['data']);
+        $this->assertEquals('8:d-11-new', $item->getData());
 
         // Next eviction should be a null item which represents the old queue entry for key 'k-11'.
         $item = $q->evict(12);
@@ -44,7 +37,7 @@ class PriorityHashQueueTest extends \PHPUnit_Framework_TestCase
 
         // Here we'll get the item for 'k-12'
         $item = $q->evict(12);
-        $this->assertEquals('d-12', $item['data']);
+        $this->assertEquals('4:d-12', $item->getData());
 
     }
 
@@ -55,8 +48,9 @@ class PriorityHashQueueTest extends \PHPUnit_Framework_TestCase
         $q = new PriorityHashQueue();
         $q->push("test_evict_key", $data, 1);
         $result = $q->evict(2);
-        $this->assertArrayHasKey("data", $result);
-        $this->assertEquals($data, $result['data']);
+
+        $this->assertInstanceOf('Awdn\VigilantQueue\Queue\QueueItem', $result);
+        $this->assertEquals('5:'.$data, $result->getData());
         $result = $q->evict(2);
         $this->assertNull($result);
 
@@ -71,15 +65,15 @@ class PriorityHashQueueTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(2, $q->count());
 
         $result = $q->evict(2);
-        $this->assertArrayHasKey("data", $result);
-        $this->assertEquals($data, $result['data']);
+        $this->assertInstanceOf('Awdn\VigilantQueue\Queue\QueueItem', $result);
+        $this->assertEquals("5:".$data, $result->getData());
 
         $result = $q->evict(2);
         $this->assertNull($result);
 
         $result = $q->evict(3);
-        $this->assertArrayHasKey("data", $result);
-        $this->assertEquals($data2, $result['data']);
+        $this->assertInstanceOf("Awdn\VigilantQueue\Queue\QueueItem", $result);
+        $this->assertEquals("5:".$data2, $result->getData());
 
         $this->assertEquals(0, $q->count());
     }

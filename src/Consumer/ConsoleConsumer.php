@@ -47,21 +47,78 @@ class ConsoleConsumer
      */
     public function consume()
     {
-        $context = new \ZMQContext();
-        $rep = $context->getSocket(\ZMQ::SOCKET_PULL);
-        if ($this->isDebug()) {
-            ConsoleLog::log("Connect to zmq at '{$this->getZmq()}' (incoming evicted jobs from queue).");
-        }
-        $rep->connect($this->getZmq());
-
+        $client = new Client($this->getZmq());
+        $client->connect();
         $i = 0;
         while (true) {
             $i++;
-            $msg = $rep->recv();
+            $rawMessage = $client->receive();
+            $msg = ResponseMessage::fromString($rawMessage);
+            $rows = $msg->getData();
             if ($this->isDebug()) {
-                ConsoleLog::log("Received message: " . $msg);
+                ConsoleLog::log("Received raw message: " . $rawMessage);
+            }
+
+            switch ($msg->getType()) {
+                case 'aggregate':
+                    $result = $this->reducerAggregate($rows);
+                    break;
+                case 'count':
+                    $result = $this->reducerCount($rows);
+                    break;
+                default:
+                    $result = $rows;
+            }
+
+            if ($this->isDebug()) {
+                ConsoleLog::log("Reduced result for key '{$msg->getKey()}' and type '{$msg->getType()}':" . var_export($result, true));
             }
         }
+    }
+
+    /**
+     * This reducer expects serialized array data per row. If the value is of type numeric the sum for the values
+     * of the same key of all rows will be created.
+     * @param array $rows
+     * @return array
+     */
+    private function reducerAggregate($rows) {
+        $reduced = [];
+        foreach ($rows as $rowSerialized) {
+            $row = unserialize($rowSerialized);
+            foreach ($row as $key => $value) {
+                if (is_numeric($value)) {
+                    if (!isset($reduced[$key])) {
+                        $reduced[$key] = 0;
+                    }
+                    $reduced[$key] += $value;
+                } else {
+                    if (!isset($reduced[$key])) {
+                        $reduced[$key] = [];
+                    }
+                    $reduced[$key][] = $value;
+                }
+            }
+        }
+
+        return $reduced;
+    }
+
+    /**
+     * This reducer counts how often a given value is within all rows.
+     * @param array $rows
+     * @return array
+     */
+    private function reducerCount($rows) {
+        $reduced = [];
+        foreach ($rows as $key => $value) {
+            if (!isset($reduced[$value])) {
+                $reduced[$value] = 0;
+            }
+            $reduced[$value]++;
+        }
+
+        return $reduced;
     }
 
     /**

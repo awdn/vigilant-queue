@@ -1,9 +1,9 @@
 <?php
 
-$opts = getopt("", array('zmq:', 'debug:'));
+$opts = getopt("", array('zmq:', 'verbose'));
 
 $zmq = isset($opts['zmq']) ? (string)$opts['zmq'] : false;
-$debug = isset($opts['debug']) ? (boolean)$opts['debug'] : false;
+$verbose = isset($opts['verbose']) ? true : false;
 
 require_once(DIRNAME(__FILE__) . '/../vendor/autoload.php');
 
@@ -13,7 +13,7 @@ if (!$zmq) {
 }
 
 Awdn\VigilantQueue\Consumer\ConsoleConsumer
-    ::factory($zmq, $debug)
+    ::factory($zmq, $verbose)
     ->consume();
 
 
