@@ -2,7 +2,10 @@
 
 namespace Awdn\VigilantQueue\Consumer;
 
-
+/**
+ * Class Client
+ * @package Awdn\VigilantQueue\Consumer
+ */
 class Client implements ClientInterface
 {
     /**
@@ -25,6 +28,10 @@ class Client implements ClientInterface
      */
     private $zmq;
 
+    /**
+     * Client constructor.
+     * @param string $zmq
+     */
     public function __construct($zmq)
     {
         $this->setZmq($zmq);

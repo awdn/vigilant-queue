@@ -2,43 +2,50 @@
 
 namespace Awdn\VigilantQueue\Consumer;
 
-use Awdn\VigilantQueue\Utility\ConsoleLog;
+use Awdn\VigilantQueue\Server\ResponseMessage;
+use Psr\Log\LoggerInterface;
 
 /**
  * Class ConsoleConsumer
  * @package Awdn\VigilantQueue\Consumer
  */
-class ConsoleConsumer
+class ConsoleConsumer implements ConsumerInterface
 {
-
-    /**
-     * @var bool
-     */
-    private $debug = false;
-
     /**
      * @var string
      */
     private $zmq;
 
     /**
-     * ConsoleConsumer constructor.
-     * @param $zmq
+     * @var LoggerInterface
      */
-    private function __construct($zmq)
+    private $logger;
+
+    /**
+     * @var bool
+     */
+    private $verbose = false;
+
+    /**
+     * ConsoleConsumer constructor.
+     * @param string $zmq
+     */
+    private function __construct($zmq, LoggerInterface $logger)
     {
         $this->setZmq($zmq);
+        $this->logger = $logger;
     }
 
     /**
      * @param string $zmq
-     * @param bool $debug
+     * @param LoggerInterface $logger
+     * @param bool $verbose
      * @return ConsoleConsumer
      */
-    public function factory($zmq, $debug)
+    public function factory($zmq, LoggerInterface $logger, $verbose)
     {
-        $consumer = new self($zmq);
-        $consumer->setDebug($debug);
+        $consumer = new self($zmq, $logger);
+        $consumer->setVerbose($verbose);
         return $consumer;
     }
 
@@ -47,31 +54,44 @@ class ConsoleConsumer
      */
     public function consume()
     {
+        $this->logger->info("Connecting to server outbound queue on '{$this->getZmq()}'.");
+
         $client = new Client($this->getZmq());
         $client->connect();
         $i = 0;
         while (true) {
             $i++;
             $rawMessage = $client->receive();
-            $msg = ResponseMessage::fromString($rawMessage);
-            $rows = $msg->getData();
-            if ($this->isDebug()) {
-                ConsoleLog::log("Received raw message: " . $rawMessage);
+            try {
+                $msg = ResponseMessage::fromString($rawMessage);
+                $rows = $msg->getData();
+
+                if ($this->isVerbose()) {
+                    $this->logger->debug("Received raw message: " . $rawMessage);
+                }
+
+
+                switch ($msg->getType()) {
+                    case 'aggregate':
+                        $result = $this->reducerAggregate($rows);
+                        break;
+                    case 'count':
+                        $result = $this->reducerCount($rows);
+                        break;
+                    default:
+                        $result = $rows;
+                }
+
+                if ($this->isVerbose()) {
+                    $this->logger->debug("Reduced result for key '{$msg->getKey()}' and type '{$msg->getType()}':" . var_export($result,
+                            true));
+                }
+            } catch (\Exception $e) {
+                $this->logger->error((string)$e);
             }
 
-            switch ($msg->getType()) {
-                case 'aggregate':
-                    $result = $this->reducerAggregate($rows);
-                    break;
-                case 'count':
-                    $result = $this->reducerCount($rows);
-                    break;
-                default:
-                    $result = $rows;
-            }
-
-            if ($this->isDebug()) {
-                ConsoleLog::log("Reduced result for key '{$msg->getKey()}' and type '{$msg->getType()}':" . var_export($result, true));
+            if ($i % 1000 == 0) {
+                $this->logger->info("Fetched {$i} messages.");
             }
         }
     }
@@ -124,18 +144,19 @@ class ConsoleConsumer
     /**
      * @return boolean
      */
-    public function isDebug()
+    public function isVerbose()
     {
-        return $this->debug;
+        return $this->verbose;
     }
 
     /**
-     * @param boolean $debug
+     * @param boolean $verbose
      */
-    public function setDebug($debug)
+    public function setVerbose($verbose)
     {
-        $this->debug = $debug;
+        $this->verbose = $verbose;
     }
+
 
     /**
      * @return string

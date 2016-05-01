@@ -1,10 +1,14 @@
 <?php
 
-namespace Awdn\VigilantQueue\Consumer;
+namespace Awdn\VigilantQueue\Server;
 
 
 use Awdn\VigilantQueue\Queue\QueueItem;
 
+/**
+ * Class ResponseMessage
+ * @package Awdn\VigilantQueue\Server
+ */
 class ResponseMessage implements ResponseMessageInterface
 {
     /**
@@ -28,27 +32,47 @@ class ResponseMessage implements ResponseMessageInterface
     private $type;
 
 
+    /**
+     * ResponseMessage constructor.
+     * @param string $message
+     */
     public function __construct($message)
     {
         $this->message = $message;
     }
 
+    /**
+     * @param QueueItem $item
+     * @return string
+     */
     public static function fromQueueItemToString(QueueItem $item) {
         return "{$item->getKey()}:{$item->getType()}|{$item->getData()}";
-        // return $item->getData();
     }
 
+    /**
+     * @param string $message
+     * @param bool $doUnserialize
+     * @return ResponseMessage
+     * @throws \Exception
+     */
     public static function fromString($message, $doUnserialize = false) {
         $m = new ResponseMessage($message);
         $m->parse($doUnserialize);
         return $m;
     }
 
+    /**
+     * @return string
+     */
     public function __toString()
     {
         return $this->message;
     }
 
+    /**
+     * @param bool $doUnserialize
+     * @throws \Exception
+     */
     public function parse($doUnserialize = false)
     {
         $posDataDelimiter = strpos($this->message, '|');

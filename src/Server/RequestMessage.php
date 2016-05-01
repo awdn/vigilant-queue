@@ -1,10 +1,10 @@
 <?php
 
-namespace Awdn\VigilantQueue\Producer;
+namespace Awdn\VigilantQueue\Server;
 
 /**
  * Class RequestMessage
- * @package Awdn\VigilantQueue\Producer
+ * @package Awdn\VigilantQueue\Server
  */
 class RequestMessage implements RequestMessageInterface
 {
@@ -47,6 +47,9 @@ class RequestMessage implements RequestMessageInterface
         }
     }
 
+    /**
+     * @return string
+     */
     public function __toString()
     {
         return "{$this->getKey()}:{$this->getTimeoutMicroSeconds()}:{$this->getType()}|{$this->getData()}";

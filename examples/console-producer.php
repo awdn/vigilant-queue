@@ -3,7 +3,7 @@
 $opts = getopt("", array(
     'zmq:',
     'verbose',
-    'stdin:', // does not work yet
+    'logLevel:',
 
     'simulate:',
         'keyPrefix:',
@@ -19,9 +19,10 @@ if (empty($opts)) {
     exit(0);
 }
 
-$zmq = isset($opts['zmq']) ? (string)$opts['zmq'] : false;
+$zmq = isset($opts['zmq']) ? (string)$opts['zmq'] : 'tcp://127.0.0.1:4444';
 $stdIn = isset($opts['stdin']) ? true : false;
 $verbose = isset($opts['verbose']) ? true : false;
+$logLevel = isset($opts['logLevel']) ? (string)$opts['logLevel'] : 'error';
 
 $simulate = isset($opts['simulate']) ? true : false;
 $keyPrefix = isset($opts['keyPrefix']) ? (string)$opts['keyPrefix'] : false;
@@ -33,21 +34,22 @@ $sleepMicroSeconds = isset($opts['sleepUs']) ? (int)$opts['sleepUs'] : false;
 
 require_once(DIRNAME(__FILE__) . '/../vendor/autoload.php');
 
-if (!$zmq) {
-    //$zmq = 'ipc://ipc-handle-deferred-queue.ipc';
-    $zmq = 'tcp://127.0.0.1:4444';
+if ($verbose) {
+    $logLevel = 'debug';
 }
 
-//-$keyPrefix, $keyDistribution, $numMessages, $expMinMs, $expMaxMs
+$producer = Awdn\VigilantQueue\Producer\ConsoleProducer::factory(
+    $zmq,
+    \Awdn\VigilantQueue\Utility\ConsoleLog::loggerFactory('ConsoleProducer', $logLevel),
+    $verbose
+);
 
 if ($simulate) {
-    Awdn\VigilantQueue\Producer\ConsoleProducer
-        ::factory($zmq, $stdIn, $verbose)
-        ->simulate($keyPrefix, $keyDistribution, $numMessages, $expMinMs, $expMaxMs, $sleepMicroSeconds);
+    // Generate a bunch of messages and send them to the inbound queue of the deferred server.
+    $producer->simulate($keyPrefix, $keyDistribution, $numMessages, $expMinMs, $expMaxMs, $sleepMicroSeconds);
 } else {
-    Awdn\VigilantQueue\Producer\ConsoleProducer
-        ::factory($zmq, $stdIn, $verbose)
-        ->produce();
+    // Get messages from readline and write to inbound queue of the server.
+    $producer->produce();
 }
 
 

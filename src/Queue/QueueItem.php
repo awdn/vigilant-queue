@@ -2,7 +2,10 @@
 
 namespace Awdn\VigilantQueue\Queue;
 
-
+/**
+ * Class QueueItem
+ * @package Awdn\VigilantQueue\Queue
+ */
 class QueueItem
 {
     /**
@@ -25,6 +28,13 @@ class QueueItem
      */
     private $type;
 
+    /**
+     * QueueItem constructor.
+     * @param string $key
+     * @param string $data
+     * @param int $priority
+     * @param string $type
+     */
     public function __construct($key, $data, $priority, $type)
     {
         $this->key = $key;
