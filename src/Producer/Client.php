@@ -4,6 +4,13 @@
 namespace Awdn\VigilantQueue\Producer;
 
 
+use Awdn\VigilantQueue\Server\RequestMessageInterface;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Class Client
+ * @package Awdn\VigilantQueue\Producer
+ */
 class Client implements ClientInterface
 {
 
@@ -15,7 +22,7 @@ class Client implements ClientInterface
     /**
      * @var bool
      */
-    private $debug;
+    private $verbose;
 
     /**
      * @var \ZMQContext
@@ -28,22 +35,30 @@ class Client implements ClientInterface
     private $socket;
 
     /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
      * Client constructor.
      * @param string $zmq
+     * @param LoggerInterface $logger
      */
-    public function __construct($zmq)
+    public function __construct($zmq, LoggerInterface $logger)
     {
+        $this->logger = $logger;
         $this->setZmq($zmq);
     }
 
+    /**
+     * @return void
+     */
     public function connect()
     {
         $this->context = new \ZMQContext(1);
         $this->socket = new \ZMQSocket($this->context, \ZMQ::SOCKET_PUSH);
 
-        if ($this->isDebug()) {
-            ConsoleLog::log("Using {$this->getZmq()} for inter process communication.");
-        }
+        $this->logger->info("Connecting to server inbound queue on ZMQ '{$this->getZmq()}'.");
         $this->socket->connect($this->getZmq());
     }
 
@@ -53,7 +68,19 @@ class Client implements ClientInterface
      */
     public function send($message)
     {
+        if ($this->isVerbose()) {
+            $this->logger->debug("Sending message: " . $message);
+        }
         $this->socket->send($message);
+    }
+
+    /**
+     * @param RequestMessageInterface $message
+     * @return void
+     */
+    public function message($message)
+    {
+        $this->send((string)$message);
     }
 
     /**
@@ -75,17 +102,17 @@ class Client implements ClientInterface
     /**
      * @return boolean
      */
-    public function isDebug()
+    public function isVerbose()
     {
-        return $this->debug;
+        return $this->verbose;
     }
 
     /**
-     * @param boolean $debug
+     * @param boolean $verbose
      */
-    public function setDebug($debug)
+    public function setVerbose($verbose)
     {
-        $this->debug = $debug;
+        $this->verbose = $verbose;
     }
 
 

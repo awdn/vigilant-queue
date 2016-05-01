@@ -2,11 +2,14 @@
 
 namespace Awdn\VigilantQueue\Producer;
 
+use Awdn\VigilantQueue\Server\RequestMessageInterface;
+use Psr\Log\LoggerInterface;
+
 /**
  * Class GearmanProducer
  *
- * This class is a worker to given Gearman job queues and translates
- * the messages into deferred queue items
+ * This class is a worker to a given Gearman job queues and translates
+ * the jobs into deferred queue messages.
  *
  * @package Awdn\VigilantQueue\Producer
  */
@@ -27,13 +30,36 @@ class GearmanProducer
      */
     private $active = true;
 
-    public function __construct($zmq)
+    /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
+     * @var bool
+     */
+    private $verbose;
+
+    /**
+     * GearmanProducer constructor.
+     * @param string $zmq
+     * @param LoggerInterface $logger
+     * @param bool $verbose
+     */
+    public function __construct($zmq, LoggerInterface $logger, $verbose)
     {
         $this->gearman = new \GearmanWorker();
-        $this->client = new Client($zmq);
+        $this->client = new Client($zmq, $logger);
+        $this->logger = $logger;
+        $this->verbose = $verbose;
     }
 
+    /**
+     * @param string $ip
+     * @param int $port
+     */
     public function addServer($ip, $port) {
+        $this->logger->info("Adding Gearman server {$ip}:{$port}.");
         $this->gearman->addServer($ip, $port);
     }
 
@@ -62,14 +88,21 @@ class GearmanProducer
         $this->addCallback($callbackName, function($job) use ($workloadToMessageCallback) {
             $message = call_user_func($workloadToMessageCallback, $job->workload());
             if ($message instanceof RequestMessageInterface) {
-                $this->client->send((string)$message);
+                if ($this->verbose) {
+                    $this->logger->debug("Sending message to queue: " . (string)$message);
+                }
+                $this->client->message($message);
             } else {
                 throw new \Exception("Invalid return type.");
             }
         });
     }
 
-    private function addCallback($name, $callback)
+    /**
+     * @param string $name
+     * @param callable $callback
+     */
+    private function addCallback($name, callable $callback)
     {
         $this->gearman->addFunction($name, $callback);
     }

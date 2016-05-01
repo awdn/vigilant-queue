@@ -3,7 +3,8 @@
 namespace Awdn\VigilantQueue\Producer;
 
 
-use Awdn\VigilantQueue\Utility\ConsoleLog;
+use Awdn\VigilantQueue\Server\RequestMessage;
+use Psr\Log\LoggerInterface;
 
 /**
  * Class ConsoleProducer
@@ -19,69 +20,60 @@ class ConsoleProducer
     /**
      * @var bool
      */
-    private $debug = false;
+    private $verbose = false;
 
     /**
-     * @var bool
+     * @var LoggerInterface
      */
-    private $stdIn = false;
+    private $logger;
 
     /**
      * ConsoleProducer constructor.
      * @param string $zmqOut
+     * @param LoggerInterface $logger
      */
-    private function __construct($zmqOut)
+    private function __construct($zmqOut, LoggerInterface $logger)
     {
+        $this->logger = $logger;
         $this->setZmqOut($zmqOut);
     }
 
     /**
      * @param string $zmqOut
-     * @param boolean $stdIn
-     * @param boolean $debug
+     * @param LoggerInterface $logger
+     * @param boolean $verbose
      * @return ConsoleProducer
      */
-    public function factory($zmqOut, $stdIn, $debug) {
-        $producer = new self($zmqOut);
-        $producer->setDebug($debug);
-        $producer->setStdIn($stdIn);
+    public function factory($zmqOut, $logger, $verbose) {
+        $producer = new self($zmqOut, $logger);
+        $producer->setVerbose($verbose);
         return $producer;
     }
 
     /**
-     * Produces
+     * Produces messages from stdIn.
      */
     public function produce() {
-        if ($this->isDebug()) ConsoleLog::log("Starting console producer.");
+        $this->logger->info("Starting console producer.");
 
-        $client = new Client($this->getZmqOut());
+        $client = new Client($this->getZmqOut(), $this->logger);
         $client->connect();
-        $fp = false;
-        if ($this->isStdIn()) {
-            $fp = fopen('php://stdin', 'r');
-            if (!is_resource($fp)) {
-                ConsoleLog::log("Can not read from stdin.");
-                exit(1);
-            }
-        }
-        if ($this->isDebug()) ConsoleLog::log("Waiting for packets...");
+
+        $this->logger->info("Waiting for packets...");
+
         $packet = $prevPacket = false;
         do {
-            if ($this->isStdIn()) {
-                $packet = fgets($fp, 1024);
-            } else {
-                $prevPacket = $packet;
-                $packet = readline();
+            $prevPacket = $packet;
+            $packet = readline();
+
+            if ($this->verbose) {
+                $this->logger->debug("Received packet: {$packet}");
             }
 
-            if ($this->isDebug()) ConsoleLog::log("Received packet: {$packet}");
-            // writeLog($logFile, "Packet Received: {$packet}", LOG_INFO);
             $client->send($packet);
-            if ($this->isDebug()) {
-                //echo __CLASS__ . ":: Sending to zmq with result: " . "\n";
-            }
 
-        } while (($this->isStdIn() && $packet !== false) || !(!$this->isStdIn() && trim($packet) == '' && trim($prevPacket) == '') );
+
+        } while (!(trim($packet) == '' && trim($prevPacket) == ''));
 
     }
 
@@ -96,25 +88,25 @@ class ConsoleProducer
      * @param int $sleepMicroSeconds Sleep duration between each send call in microseconds.
      */
     public function simulate($keyPrefix, $keyDistribution, $numMessages, $expMinMs, $expMaxMs, $sleepMicroSeconds) {
+        $this->logger->info("Starting console producer simulation. Generating {$numMessages} messages with a key " .
+                            "distribution of {$keyDistribution}. The key prefix is {$keyPrefix} and the expiration ".
+                            "timeout is between {$expMinMs} and {$expMaxMs} microseconds.");
 
-        $client = new Client($this->getZmqOut());
+        $client = new Client($this->getZmqOut(), $this->logger);
+        $client->setVerbose($this->isVerbose());
         $client->connect();
         // Sleep until socket is ready
         // @todo Figure out a better way to check if the socket is ready.
         usleep(1000000);
 
-        if ($this->isDebug()) ConsoleLog::log("Generating packets...");
+        $this->logger->info("Starting to generate packets...");
 
 
         for ($i = 0; $i < $numMessages; $i++) {
             $key = $keyPrefix . '_' . mt_rand(1, $keyDistribution);
             $expire = mt_rand($expMinMs, $expMaxMs);
-            $data = serialize(['a' => mt_rand(10,10), 'b' => mt_rand(10,10)]);
+            $data = serialize(['a' => mt_rand(1,10), 'b' => mt_rand(1,10)]);
             $message = new RequestMessage($key, $data, $expire, 'aggregate');
-
-            if ($this->isDebug()) {
-                ConsoleLog::log((string)$message);
-            }
 
             $client->send((string)$message);
 
@@ -144,34 +136,17 @@ class ConsoleProducer
     /**
      * @return boolean
      */
-    public function isDebug()
+    public function isVerbose()
     {
-        return $this->debug;
+        return $this->verbose;
     }
 
     /**
-     * @param boolean $debug
+     * @param boolean $verbose
      */
-    public function setDebug($debug)
+    public function setVerbose($verbose)
     {
-        $this->debug = $debug;
+        $this->verbose = $verbose;
     }
-
-    /**
-     * @return boolean
-     */
-    public function isStdIn()
-    {
-        return $this->stdIn;
-    }
-
-    /**
-     * @param boolean $stdIn
-     */
-    public function setStdIn($stdIn)
-    {
-        $this->stdIn = $stdIn;
-    }
-
 
 }

@@ -140,6 +140,11 @@ class PriorityHashQueue implements \IteratorAggregate, \ArrayAccess, \Countable
         return null;
     }
 
+    /**
+     * @param string $offset
+     * @param string $data
+     * @param string $type
+     */
     private function setData($offset, $data, $type)
     {
         // If the global data mode is set to append by default OR if the data mode for the given message type requires
