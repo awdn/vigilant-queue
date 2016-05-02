@@ -44,7 +44,7 @@ class ConsoleProducer
      * @param boolean $verbose
      * @return ConsoleProducer
      */
-    public function factory($zmqOut, $logger, $verbose) {
+    public static function factory($zmqOut, $logger, $verbose) {
         $producer = new self($zmqOut, $logger);
         $producer->setVerbose($verbose);
         return $producer;
