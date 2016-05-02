@@ -42,7 +42,7 @@ class ConsoleConsumer implements ConsumerInterface
      * @param bool $verbose
      * @return ConsoleConsumer
      */
-    public function factory($zmq, LoggerInterface $logger, $verbose)
+    public static function factory($zmq, LoggerInterface $logger, $verbose)
     {
         $consumer = new self($zmq, $logger);
         $consumer->setVerbose($verbose);
