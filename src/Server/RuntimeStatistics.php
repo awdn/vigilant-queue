@@ -2,12 +2,27 @@
 
 namespace Awdn\VigilantQueue\Server;
 
+use Awdn\VigilantQueue\Utility\MetricsInterface;
+
 /**
  * Class RuntimeStatistics
  * @package Awdn\VigilantQueue\Server
  */
 class RuntimeStatistics
 {
+
+    /**
+     * This will trigger the class to count total numbers for added and evicted objects instead of the numbers
+     * since last tick() call.
+     * @var bool
+     */
+    private $countAbsolute = false;
+
+    /**
+     * @var MetricsInterface
+     */
+    private $metrics;
+
     /**
      * @var float
      */
@@ -33,13 +48,24 @@ class RuntimeStatistics
      */
     private $lastEvictionCount = 0;
 
+    /**
+     * @var float
+     */
+    private $memoryUsageMb = 0.0;
+
+    /**
+     * @var float
+     */
+    private $memoryPeakUsageMb = 0.0;
+
 
     /**
      * RuntimeStatistics constructor.
      */
-    public function __construct()
+    public function __construct(MetricsInterface $metrics)
     {
         $this->startTime = microtime(true);
+        $this->setMetrics($metrics);
     }
 
     /**
@@ -136,10 +162,72 @@ class RuntimeStatistics
     }
 
     /**
+     * @return float
+     */
+    public function getMemoryUsageMb()
+    {
+        return $this->memoryUsageMb;
+    }
+
+    /**
+     * @param float $memoryUsageMb
+     */
+    public function setMemoryUsageMb($memoryUsageMb)
+    {
+        $this->memoryUsageMb = $memoryUsageMb;
+    }
+
+    /**
+     * @return float
+     */
+    public function getMemoryPeakUsageMb()
+    {
+        return $this->memoryPeakUsageMb;
+    }
+
+    /**
+     * @param float $memoryPeakUsageMb
+     */
+    public function setMemoryPeakUsageMb($memoryPeakUsageMb)
+    {
+        $this->memoryPeakUsageMb = $memoryPeakUsageMb;
+    }
+
+
+
+    /**
      * Sets internal values for aggregations when the next cycle is calculated.
      */
     public function tick() {
-        $this->setLastEvictionCount($this->getEvictedObjectCount());
-        $this->setLastObjectCount($this->getAddedObjectCount());
+        $this->metrics->set('objects', $this->getAddedObjectCount());
+        $this->metrics->set('evictions', $this->getEvictedObjectCount());
+        $this->metrics->set('memory', $this->getMemoryUsageMb());
+        $this->metrics->set('memory_peak', $this->getMemoryPeakUsageMb());
+
+        if (!$this->countAbsolute) {
+            $this->evictedObjectCount = 0;
+            $this->addedObjectCount = 0;
+        } else {
+            $this->setLastEvictionCount($this->getEvictedObjectCount());
+            $this->setLastObjectCount($this->getAddedObjectCount());
+        }
     }
+
+    /**
+     * @return MetricsInterface
+     */
+    public function getMetrics()
+    {
+        return $this->metrics;
+    }
+
+    /**
+     * @param MetricsInterface $metrics
+     */
+    public function setMetrics($metrics)
+    {
+        $this->metrics = $metrics;
+    }
+
+
 }

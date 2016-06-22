@@ -2,6 +2,7 @@
 
 namespace Awdn\VigilantQueue\Server;
 
+use Awdn\VigilantQueue\Utility\MetricsInterface;
 use Monolog\Logger;
 use Psr\Log\LoggerInterface;
 use React;
@@ -69,11 +70,12 @@ class DeferredQueue
     /**
      * @param Config $config
      * @param LoggerInterface $logger
+     * @param MetricsInterface $metrics
      * @return DeferredQueue
      */
-    public static function factory(Config $config, LoggerInterface $logger)
+    public static function factory(Config $config, LoggerInterface $logger, MetricsInterface $metrics)
     {
-        $server = new self($config, $logger);
+        $server = new self($config, $logger, $metrics);
         $server->init();
         return $server;
     }
@@ -81,13 +83,14 @@ class DeferredQueue
     /**
      * @param Config $config
      * @param LoggerInterface $logger
+     * @param MetricsInterface $metrics
      * @return DeferredQueue
      */
-    private function __construct(Config $config, LoggerInterface $logger)
+    private function __construct(Config $config, LoggerInterface $logger, MetricsInterface $metrics)
     {
         $this->setLogger($logger);
         $this->setConfig($config);
-        $this->runtimeStatistics = new RuntimeStatistics();
+        $this->runtimeStatistics = new RuntimeStatistics($metrics);
     }
 
     /**
@@ -183,13 +186,18 @@ class DeferredQueue
         $this->reactLoop->addPeriodicTimer($this->config->getStatusLoopInterval(), function () {
 
             $memoryUsageMb = memory_get_usage(true) / 1024 / 1024;
+            $this->runtimeStatistics->setMemoryUsageMb($memoryUsageMb);
+
             if ($memoryUsageMb > $this->config->getMemoryLimitMbWarn()) {
                 $this->logger->warning("MemoryUsage:   {$memoryUsageMb} MB.");
             } else if ($memoryUsageMb > $this->config->getMemoryLimitMbInfo()) {
                 $this->logger->info("MemoryUsage:   {$memoryUsageMb} MB.");
             }
 
-            if (memory_get_peak_usage(true) / 1024 / 1024 > $this->config->getMemoryPeakLimitMbWarn()) {
+            $memoryPeakUsageMb = memory_get_peak_usage(true) / 1024 / 1024;
+            $this->runtimeStatistics->setMemoryPeakUsageMb($memoryPeakUsageMb);
+
+            if ($memoryPeakUsageMb > $this->config->getMemoryPeakLimitMbWarn()) {
                 $this->logger->warning("MemoryPeakUsage " . (memory_get_peak_usage(true) / 1024 / 1024) . " MB.");
             }
 

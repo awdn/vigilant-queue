@@ -32,7 +32,9 @@ $config
 
 $server = Awdn\VigilantQueue\Server\DeferredQueue::factory(
     $config,
-    \Awdn\VigilantQueue\Utility\ConsoleLog::loggerFactory('DeferredQueue', $config->getMinimumLogLevel())
+    \Awdn\VigilantQueue\Utility\ConsoleLog::loggerFactory('DeferredQueue', $config->getMinimumLogLevel()),
+    new \Awdn\VigilantQueue\Utility\NullMetricsHandler()
+    // new \Awdn\VigilantQueue\Utility\FileMetricsHandler('php://stdout')
 );
 
 // For the following request message types, we change the behaviour of the queue to append the data to existing keys
