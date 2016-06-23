@@ -3,6 +3,7 @@
 namespace Awdn\VigilantQueue\Producer;
 
 use Awdn\VigilantQueue\Server\RequestMessageInterface;
+use Awdn\VigilantQueue\Utility\MetricsInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -36,6 +37,11 @@ class GearmanProducer
     private $logger;
 
     /**
+     * @var MetricsInterface
+     */
+    private $metrics;
+
+    /**
      * @var bool
      */
     private $verbose;
@@ -44,13 +50,15 @@ class GearmanProducer
      * GearmanProducer constructor.
      * @param string $zmq
      * @param LoggerInterface $logger
+     * @param MetricsInterface $metrics
      * @param bool $verbose
      */
-    public function __construct($zmq, LoggerInterface $logger, $verbose)
+    public function __construct($zmq, LoggerInterface $logger, MetricsInterface $metrics, $verbose)
     {
         $this->gearman = new \GearmanWorker();
         $this->client = new Client($zmq, $logger);
         $this->logger = $logger;
+        $this->metrics = $metrics;
         $this->verbose = $verbose;
     }
 
@@ -91,6 +99,7 @@ class GearmanProducer
                 if ($this->verbose) {
                     $this->logger->debug("Sending message to queue: " . (string)$message);
                 }
+                $this->metrics->increment('message');
                 $this->client->message($message);
             } else {
                 throw new \Exception("Invalid return type.");
